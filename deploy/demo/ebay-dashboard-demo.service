@@ -1,0 +1,28 @@
+# Read-only portfolio demo on synthetic data. Setup: docs/demo-setup.md.
+#
+# Run it as an ordinary user, never root (the demo refuses uid 0). Build first:
+#   npm ci && npx prisma generate && npm run seed:demo && npm run demo:build
+# Install as a user unit:
+#   cp deploy/demo/ebay-dashboard-demo.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now ebay-dashboard-demo
+# Set WorkingDirectory to your checkout and ExecStart to the absolute path of
+# your npm (/usr/bin/npm is an example). The demo needs no secrets or .env file.
+[Unit]
+Description=eBay Seller Ops Dashboard read-only demo
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/apps/ebay-dashboard-demo
+ExecStart=/usr/bin/npm run demo:start
+Environment=NODE_ENV=production
+# Binds 127.0.0.1:3941 by default. Put an HTTPS reverse proxy in front; set
+# DEMO_HOST only when that proxy runs on another machine.
+#Environment=DEMO_HOST=0.0.0.0
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

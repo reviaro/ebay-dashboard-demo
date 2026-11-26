@@ -1,0 +1,2 @@
+ALTER TABLE "EbayTransaction" ADD COLUMN "veryHighInadFee" REAL NOT NULL DEFAULT 0;
+ALTER TABLE "EbayTransaction" ADD COLUMN "belowStandardFee" REAL NOT NULL DEFAULT 0;

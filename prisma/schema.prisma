@@ -1,0 +1,859 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  // Resolved RELATIVE TO THIS FILE, not the working directory -- so the value
+  // is `file:./dev.db`, meaning prisma/dev.db. A value of `file:./prisma/dev.db`
+  // would silently resolve to prisma/prisma/dev.db and create an empty database.
+  url      = env("DATABASE_URL")
+}
+
+model PerformanceMetric {
+  storeId             String
+  store               Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id                  Int      @id @default(autoincrement())
+  date                DateTime
+  // NOT NULL on purpose: @@unique([storeId, date, itemId]) cannot dedupe NULLs in SQLite,
+  // so a nullable itemId would let duplicate rows accumulate silently. Every
+  // write path already requires an itemId; this makes that structural.
+  // Store-level (non-per-listing) traffic belongs in the Phase 5 traffic schema
+  // with an explicit dimension, not in a null itemId here.
+  itemId              String
+  revenue             Float    @default(0)
+  salesCount          Int      @default(0)
+  averageSalePrice    Float    @default(0)
+  cost                Float    @default(0)
+  internationalRate   Float    @default(0)
+  canadaSalesCount    Int      @default(0)
+  ukSalesCount        Int      @default(0)
+  topCategory         String?
+  topBrand            String?
+  impressions         Int      @default(0)
+  pageViews           Int      @default(0)
+  ctr                 Float    @default(0)
+  salesConversionRate Float    @default(0)
+  createdAt           DateTime @default(now())
+
+  @@unique([storeId, date, itemId])
+  @@index([storeId])
+}
+
+model Task {
+  storeId     String
+  store       Store     @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String?
+  /// Full markdown document (report, analysis, plan) attached by the agent;
+  /// shown in the task's detail view. Untrusted — rendered without raw HTML.
+  report      String?
+  status      String    @default("todo") // todo, in-progress, completed
+  priority    String    @default("medium") // low, medium, high
+  dueDate     DateTime?
+  phase       Int?      @default(1)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([storeId])
+}
+
+model ChatMessage {
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id        Int      @id @default(autoincrement())
+  role      String // user, assistant
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([storeId])
+}
+
+model UploadRecord {
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id          Int      @id @default(autoincrement())
+  filename    String
+  type        String // sales, active, traffic
+  rowCount    Int      @default(0)
+  createdAt   DateTime @default(now())
+  // Retained for compatibility with legacy uploaded-record hashes. Keeping the
+  // column declared prevents migrations from unintentionally dropping values.
+  contentHash String?
+
+  @@unique([storeId, contentHash])
+  @@index([storeId])
+}
+
+model EbayTransaction {
+  storeId               String
+  store                 Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id                    Int      @id @default(autoincrement())
+  transactionKey        String
+  transactionDate       DateTime
+  type                  String
+  orderNumber           String?
+  itemId                String?
+  transactionId         String?
+  itemTitle             String?
+  quantity              Int      @default(0)
+  itemSubtotal          Float    @default(0)
+  shipping              Float    @default(0)
+  tax                   Float    @default(0)
+  finalValueFeeFixed    Float    @default(0)
+  finalValueFeeVariable Float    @default(0)
+  regulatoryFee         Float    @default(0)
+  veryHighInadFee       Float    @default(0)
+  belowStandardFee      Float    @default(0)
+  internationalFee      Float    @default(0)
+  otherFee              Float    @default(0)
+  grossAmount           Float    @default(0)
+  netAmount             Float    @default(0)
+  currency              String   @default("USD")
+  description           String?
+  createdAt             DateTime @default(now())
+
+  @@unique([storeId, transactionKey])
+  @@index([storeId, transactionDate])
+  @@index([storeId, orderNumber])
+  @@index([storeId, itemId])
+  @@index([storeId])
+}
+
+model PromotedListingMetric {
+  storeId              String
+  store                Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id                   Int      @id @default(autoincrement())
+  reportStart          DateTime
+  reportEnd            DateTime
+  campaignName         String
+  campaignId           String
+  campaignStatus       String?
+  itemId               String
+  title                String
+  price                Float    @default(0)
+  quantityAvailable    Int      @default(0)
+  promotedImpressions  Int      @default(0)
+  promotedClicks       Int      @default(0)
+  promotedSoldQuantity Int      @default(0)
+  organicSoldQuantity  Int      @default(0)
+  totalSoldQuantity    Int      @default(0)
+  conversionRate       Float    @default(0)
+  contributionRate     Float    @default(0)
+  attributedSales      Float    @default(0)
+  adFees               Float    @default(0)
+  roas                 Float    @default(0)
+  organicClicks        Int      @default(0)
+  organicImpressions   Int      @default(0)
+  createdAt            DateTime @default(now())
+
+  @@unique([storeId, reportStart, reportEnd, campaignId, itemId])
+  @@index([storeId, campaignId])
+  @@index([storeId, itemId])
+  @@index([storeId])
+}
+
+/// eBay Promoted Listings performance from the Marketing API (async report
+/// task). Disjoint from the CSV-fed PromotedListingMetric — see the Phase 6
+/// design §2. `fundingModel` is "CPS" | "CPC".
+model EbayAdReport {
+  storeId         String
+  store           Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id              Int      @id @default(autoincrement())
+  reportStart     DateTime
+  reportEnd       DateTime
+  fundingModel    String
+  campaignId      String
+  campaignName    String
+  campaignStatus  String?
+  listingId       String
+  title           String
+  impressions     Int      @default(0)
+  clicks          Int      @default(0)
+  adSpend         Float    @default(0)
+  attributedSales Float    @default(0)
+  attributedUnits Int      @default(0)
+  cpc             Float    @default(0)
+  ctr             Float    @default(0)
+  roas            Float    @default(0)
+  acos            Float    @default(0)
+  createdAt       DateTime @default(now())
+
+  @@unique([storeId, reportStart, reportEnd, fundingModel, campaignId, listingId])
+  @@index([storeId, campaignId])
+  @@index([storeId, listingId])
+  @@index([storeId])
+}
+
+/// Live Promoted Listings campaign roster (GET /sell/marketing/v1/ad_campaign).
+/// Metadata only — performance metrics come from the uploaded CSV (EbayAdReport).
+model EbayAdCampaign {
+  storeId        String
+  store          Store     @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  campaignId     String
+  campaignName   String
+  fundingModel   String // "CPS" | "CPC" | "unknown"
+  campaignStatus String // RUNNING | ENDED | PAUSED | SCHEDULED | ...
+  channels       String? // JSON array text, e.g. ["ON_SITE"]
+  targetingType  String?
+  dailyBudget    Float?
+  budgetCurrency String?
+  bidPercentage  Float?
+  startDate      DateTime?
+  endDate        DateTime?
+  lastSeenAt     DateTime
+  createdAt      DateTime  @default(now())
+
+  @@id([storeId, campaignId])
+  @@index([storeId, campaignStatus])
+  @@index([storeId])
+}
+
+model Sale {
+  storeId       String
+  store         Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id            Int      @id @default(autoincrement())
+  recordNumber  Int?
+  orderNumber   String?
+  sourceKey     String?
+  saleDate      DateTime
+  itemTitle     String
+  brand         String
+  itemNumber    String?
+  soldFor       Float    @default(0)
+  shipping      Float    @default(0)
+  eBayTax       Float    @default(0)
+  totalPrice    Float    @default(0)
+  shipToState   String?
+  shipToCountry String?
+  promoted      Boolean  @default(false)
+  quantity      Int      @default(1)
+  createdAt     DateTime @default(now())
+
+  @@unique([storeId, sourceKey])
+  @@index([storeId, orderNumber])
+  @@index([storeId])
+}
+
+model InventoryExpense {
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id        Int      @id @default(autoincrement())
+  date      DateTime
+  vendor    String // Yard or supplier the inventory was bought from
+  amount    Float
+  memo      String?
+  importKey String?
+  createdAt DateTime @default(now())
+
+  @@unique([storeId, importKey])
+  @@index([storeId])
+}
+
+model EbayFee {
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id          Int      @id @default(autoincrement())
+  month       String // YYYY-MM
+  feeType     String // final-value, per-order, flat, other
+  amount      Float
+  description String?
+  importKey   String?
+  createdAt   DateTime @default(now())
+
+  @@unique([storeId, importKey])
+  @@index([storeId])
+}
+
+/// eBay Sell Finances `transaction` -> one row. Keyed on eBay's own
+/// `transactionId`, NOT the sha256 CSV key `EbayTransaction` uses -- the two
+/// tables are disjoint sources (Phase 7 design doc §1), never merged per-row.
+/// `amount` is Decimal: SQLite still stores it as a double, but every sum over
+/// these rows must go through JS `Decimal`, never a raw SQL `SUM()`.
+model EbayFinanceTransaction {
+  storeId         String
+  store           Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id              String   @id @default(cuid())
+  accountId       String
+  transactionId   String
+  transactionDate DateTime
+  bookingEntry    String // CREDIT | DEBIT
+  transactionType String // SALE | REFUND | NON_SALE_CHARGE | TRANSFER | ...
+  amount          Decimal
+  feeDetails      String? // JSON text -- same convention as EbayOrder.pricingSummary
+  orderId         String?
+  payoutId        String?
+  salesRecordRef  String?
+  marketplaceId   String
+  rawPayload      String // JSON text, full response for audit/debug
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([storeId, accountId, transactionId])
+  @@index([storeId, transactionDate])
+  @@index([storeId, orderId])
+  @@index([storeId, payoutId])
+  @@index([storeId])
+}
+
+/// eBay Sell Finances `payout` -> one row, keyed on eBay's `payoutId`.
+model EbayPayout {
+  storeId          String
+  store            Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id               String
+  accountId        String
+  payoutDate       DateTime
+  payoutStatus     String
+  amount           Decimal
+  transactionCount Int      @default(0)
+  rawPayload       String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@id([storeId, id])
+  @@index([storeId, payoutDate])
+  @@index([storeId])
+}
+
+model GeneralExpense {
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id          Int      @id @default(autoincrement())
+  date        DateTime
+  category    String // office-supplies, shipping-supplies, vehicle, tools, ebay-store, phone-internet, other
+  amount      Float
+  description String?
+  vendor      String?
+  createdAt   DateTime @default(now())
+
+  @@index([storeId])
+}
+
+model Inventory {
+  storeId    String
+  store      Store     @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id         Int       @id @default(autoincrement())
+  itemId     String?
+  sku        String?
+  title      String
+  brand      String
+  partNumber String?
+  condition  String?
+  price      Float
+  cost       Float?
+  location   String? // e.g., Pick-A-Part VA - Stafford
+  quantity   Int       @default(0)
+  views      Int       @default(0)
+  watchers   Int       @default(0)
+  pulledAt   DateTime?
+  soldAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@unique([storeId, itemId])
+  @@unique([storeId, sku])
+  @@index([storeId])
+}
+
+model EbayOrder {
+  storeId                String
+  store                  Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id                     String
+  legacyOrderId          String?
+  creationDate           DateTime
+  lastModifiedDate       DateTime
+  orderFulfillmentStatus String
+  orderPaymentStatus     String
+  sellerId               String?
+  buyerUsername          String?
+  buyerEmail             String?
+  pricingSummary         String // JSON stored as text for SQLite
+  totalAmount            Float
+  currency               String   @default("USD")
+  ebayFees               Float    @default(0)
+  finalValueFee          Float    @default(0)
+  internationalFee       Float    @default(0)
+  adFee                  Float    @default(0)
+  tax                    Float    @default(0)
+  netProceeds            Float    @default(0)
+  lineItems              String // JSON stored as text for SQLite
+  fulfillmentHrefs       String? // JSON stored as text for SQLite
+  syncedAt               DateTime @default(now())
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@id([storeId, id])
+  @@index([storeId])
+}
+
+/// A live eBay listing, from the Active Inventory Report.
+///
+/// Keyed on the listing id because listings may omit SKUs entirely. `sku` is
+/// optional for sellers who use it. A separate SKU-level model would require
+/// explicit handling of multiple listings per SKU.
+///
+/// `status` distinguishes sold from ended listings because absence from a
+/// report alone cannot establish whether a listing sold.
+model EbayOffer {
+  storeId    String
+  store      Store     @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id         Int       @id @default(autoincrement())
+  listingId  String
+  sku        String?
+  price      Float     @default(0)
+  currency   String    @default("USD")
+  quantity   Int       @default(0)
+  /// active | sold | ended
+  status     String    @default("active")
+  /// When the report last actually contained this listing.
+  lastSeenAt DateTime?
+  syncedAt   DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([storeId, listingId])
+  @@index([storeId, status])
+  @@index([storeId])
+}
+
+/// Store-wide traffic for one reporting day and marketplace.
+///
+/// From the Analytics `traffic_report` DAY dimension. `date` is eBay's own day
+/// label -- a Pacific calendar day -- stored at UTC midnight, which is what the
+/// CSV path already writes, so API and uploaded rows line up on the same dates.
+///
+/// Only counts are stored. eBay also publishes CLICK_THROUGH_RATE and
+/// SALES_CONVERSION_RATE, but as fractions rounded to two decimals. That loses
+/// precision needed for reporting. Rates are computed from these
+/// counts at read time instead, which is also the only correct way to
+/// aggregate them across days or listings.
+model EbayTrafficDay {
+  storeId           String
+  store             Store     @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  date              DateTime
+  /// Queried per marketplace: a combined filter silently SUMS marketplaces and
+  /// the response carries no marketplace dimension to split them back out.
+  marketplaceId     String
+  impressionsSearch Int       @default(0)
+  impressionsStore  Int       @default(0)
+  /// Reported by eBay; the total combines search and store impressions.
+  impressionsTotal  Int       @default(0)
+  viewsSearch       Int       @default(0)
+  viewsStore        Int       @default(0)
+  viewsDirect       Int       @default(0)
+  viewsOtherEbay    Int       @default(0)
+  viewsOffEbay      Int       @default(0)
+  viewsTotal        Int       @default(0)
+  transactions      Int       @default(0)
+  /// eBay's own "data current as of" stamp for the response this row came from.
+  /// Recent days keep moving, which is why every run re-fetches a lookback.
+  reportUpdatedAt   DateTime?
+  syncedAt          DateTime  @default(now())
+
+  @@id([storeId, date, marketplaceId])
+  @@index([storeId, date])
+  @@index([storeId])
+}
+
+/// Per-listing traffic for one reporting day and marketplace.
+///
+/// One row per listing per DAY because eBay's `dimension` parameter takes a
+/// single value -- ask for `LISTING,DAY` and it returns listings only, while
+/// the response header claims both dimensions. A LISTING request is also
+/// capped at 200 rows with `limit`/`offset` ignored. A single-day window
+/// minimizes truncation risk, but can still be incomplete at the row cap.
+model EbayTrafficListing {
+  storeId           String
+  store             Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  date              DateTime
+  marketplaceId     String
+  listingId         String
+  /// From the response's own dimensionMetadata, which may cover only some
+  /// rows; the rest fall back to Inventory/EbayOffer.
+  title             String?
+  impressionsSearch Int      @default(0)
+  impressionsStore  Int      @default(0)
+  /// Summed locally: LISTING_IMPRESSION_TOTAL is not served at this dimension.
+  impressionsTotal  Int      @default(0)
+  viewsSearch       Int      @default(0)
+  viewsStore        Int      @default(0)
+  viewsTotal        Int      @default(0)
+  transactions      Int      @default(0)
+  /// True when the day came back at eBay's 200-row cap, so it is a top-200
+  /// slice rather than every listing with traffic that day.
+  truncated         Boolean  @default(false)
+  syncedAt          DateTime @default(now())
+
+  @@id([storeId, date, marketplaceId, listingId])
+  @@index([storeId, listingId])
+  @@index([storeId, date])
+  @@index([storeId])
+}
+
+model EbayPriceComparison {
+  storeId         String
+  store           Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id              Int      @id @default(autoincrement())
+  sku             String
+  title           String?
+  yourPrice       Float
+  minPrice        Float?
+  maxPrice        Float?
+  avgPrice        Float?
+  medianPrice     Float?
+  competitorCount Int      @default(0)
+  recommendation  String?
+  priceDiff       Float?
+  sampleListings  String? // JSON stored as text for SQLite
+  checkedAt       DateTime @default(now())
+
+  @@unique([storeId, sku])
+  @@index([storeId])
+}
+
+/// Lease that stops two syncs of the same domain running at once.
+///
+/// `name` is the domain today ("orders"); it takes an account prefix when more
+/// than one seller account is supported, which is why it is a free-form key
+/// rather than an enum. Unique on `name` is what makes acquisition atomic: a
+/// second run's INSERT violates it rather than quietly sharing the lock.
+model EbaySyncLock {
+  storeId    String
+  store      Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id         Int      @id @default(autoincrement())
+  name       String
+  /// Identifies the holding process, e.g. `manual:4821@host`.
+  owner      String
+  acquiredAt DateTime @default(now())
+  expiresAt  DateTime
+
+  @@unique([storeId, name])
+  @@index([storeId, expiresAt])
+  @@index([storeId])
+}
+
+/// Per-domain sync schedule. One row per domain ("orders"); it gains an
+/// account key when more than one seller account is supported.
+///
+/// `nextRunAt` is the scheduling decision, written after each run rather than
+/// recomputed from `lastRunAt` on read, so changing the frequency takes effect
+/// without retroactively rescheduling history. A null means "never run" and is
+/// treated as due -- otherwise a newly enabled domain waits forever for a
+/// timestamp only a completed run would set.
+model EbaySyncSetting {
+  storeId      String
+  store        Store     @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id           Int       @id @default(autoincrement())
+  domain       String
+  enabled      Boolean   @default(true)
+  /// manual | daily | weekly -- validated per domain in sync/schedule.ts.
+  frequency    String    @default("weekly")
+  /// Window each run asks for. Must be at least as long as the interval.
+  lookbackDays Int       @default(30)
+  lastRunAt    DateTime?
+  nextRunAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([storeId, domain])
+  @@index([storeId, nextRunAt])
+  @@index([storeId])
+}
+
+/// One tile of a chunked sync, so an interrupted run resumes instead of
+/// redoing or skipping work.
+///
+/// `status` advances to `done` only after the chunk's writes commit — a
+/// checkpoint written ahead of its data silently loses that data. `externalId`
+/// holds eBay's asynchronous report-task id for Phase 6, where a chunk's work
+/// spans several ticks.
+model EbaySyncChunk {
+  storeId    String
+  store      Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id         Int      @id @default(autoincrement())
+  /// Groups the chunks of one logical run, e.g. `orders:2026-09-04`.
+  runKey     String
+  domain     String
+  rangeStart DateTime
+  rangeEnd   DateTime
+  /// pending | done | failed
+  status     String   @default("pending")
+  attempts   Int      @default(0)
+  /// Pagination position within the chunk, for jobs that page.
+  cursor     String?
+  /// eBay async task/report id, for work that outlives a single tick.
+  externalId String?
+  lastError  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([storeId, runKey, rangeStart, rangeEnd])
+  @@index([storeId, domain, status])
+  @@index([storeId])
+}
+
+model EbaySyncLog {
+  storeId    String
+  store      Store     @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id         Int       @id @default(autoincrement())
+  type       String
+  status     String
+  message    String?
+  count      Int       @default(0)
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@index([storeId])
+}
+
+model ListingNote {
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id        Int      @id @default(autoincrement())
+  listingId String
+  tags      String // JSON array e.g. ["lower price","bad photos"]
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([storeId, listingId])
+  @@index([storeId])
+}
+
+/// A connected eBay seller account. Single-seller today, but keyed by
+/// environment so production and sandbox can coexist.
+///
+/// The refresh token is stored ONLY as an AES-256-GCM envelope (see
+/// src/lib/ebay/token-store.ts). Plaintext tokens never touch a column.
+/// `environment` is the unique key rather than [environment, sellerId]:
+/// sellerId is unknown until the first API call, and SQLite unique indexes do
+/// not dedupe NULLs, so a nullable component would permit duplicate accounts.
+model EbayAccount {
+  storeId       String
+  store         Store   @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  id            String  @id @default(cuid())
+  environment   String // production | sandbox
+  marketplaceId String  @default("EBAY_US")
+  sellerId      String?
+  username      String?
+
+  refreshTokenCiphertext String
+  refreshTokenIv         String
+  refreshTokenAuthTag    String
+  refreshTokenKeyVersion String
+  refreshTokenExpiresAt  DateTime?
+
+  /// JSON array of granted scope URIs, stored as text for SQLite.
+  scopes String
+
+  /// connected | reauthorization_required | disconnected
+  status        String    @default("connected")
+  authorizedAt  DateTime  @default(now())
+  revokedAt     DateTime?
+  lastContactAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([storeId, environment])
+  @@unique([environment, sellerId])
+  @@unique([storeId, id])
+  @@index([storeId])
+}
+
+/// Short-lived CSRF nonce binding an OAuth authorization request to the browser
+/// session that started it. Verified and consumed before the code exchange.
+model EbayOAuthState {
+  storeId         String
+  store           Store     @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  state           String    @id
+  environment     String
+  createdAt       DateTime  @default(now())
+  expiresAt       DateTime
+  consumedAt      DateTime?
+  userId          String
+  sessionId       String
+  requestedScopes String
+
+  @@index([storeId, expiresAt])
+  @@index([storeId])
+}
+
+model Store {
+  id                     String                   @id @default(cuid())
+  name                   String
+  marketplaceId          String                   @default("EBAY_US")
+  writeEnabled           Boolean                  @default(false)
+  archivedAt             DateTime?
+  descriptionTemplate    String                   @default("")
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  memberships            StoreMembership[]
+  agentKeys              AgentKey[]
+  drafts                 ListingDraft[]
+  assets                 ListingAsset[]
+  operations             ListingOperation[]
+  auditEvents            AuditEvent[]
+  performanceMetric      PerformanceMetric[]
+  task                   Task[]
+  chatMessage            ChatMessage[]
+  uploadRecord           UploadRecord[]
+  ebayTransaction        EbayTransaction[]
+  promotedListingMetric  PromotedListingMetric[]
+  ebayAdReport           EbayAdReport[]
+  ebayAdCampaign         EbayAdCampaign[]
+  sale                   Sale[]
+  inventoryExpense       InventoryExpense[]
+  ebayFee                EbayFee[]
+  ebayFinanceTransaction EbayFinanceTransaction[]
+  ebayPayout             EbayPayout[]
+  generalExpense         GeneralExpense[]
+  inventory              Inventory[]
+  ebayOrder              EbayOrder[]
+  ebayOffer              EbayOffer[]
+  ebayTrafficDay         EbayTrafficDay[]
+  ebayTrafficListing     EbayTrafficListing[]
+  ebayPriceComparison    EbayPriceComparison[]
+  ebaySyncLock           EbaySyncLock[]
+  ebaySyncSetting        EbaySyncSetting[]
+  ebaySyncChunk          EbaySyncChunk[]
+  ebaySyncLog            EbaySyncLog[]
+  listingNote            ListingNote[]
+  ebayAccount            EbayAccount[]
+  ebayOAuthState         EbayOAuthState[]
+}
+
+model User {
+  id           String            @id @default(cuid())
+  username     String            @unique
+  displayName  String
+  passwordHash String?
+  isOwner      Boolean           @default(false)
+  disabledAt   DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  sessions     UserSession[]
+  memberships  StoreMembership[]
+  invitations  UserInvitation[]
+}
+
+model UserSession {
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model StoreMembership {
+  storeId String
+  userId  String
+  role    String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([storeId, userId])
+  @@index([userId])
+}
+
+model UserInvitation {
+  tokenHash  String    @id
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model AgentKey {
+  id           String    @id @default(cuid())
+  storeId      String
+  store        Store     @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  name         String
+  tokenHash    String    @unique
+  canEditTasks Boolean   @default(false)
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([storeId])
+}
+
+model ListingDraft {
+  id               String             @id @default(cuid())
+  storeId          String
+  store            Store              @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  createdById      String
+  title            String
+  payload          String
+  version          Int                @default(1)
+  status           String             @default("draft")
+  listingId        String?
+  publishedPayload String?
+  validation       String?
+  remoteSnapshot   String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  operations       ListingOperation[]
+
+  @@unique([storeId, id])
+  @@unique([storeId, listingId])
+  @@index([storeId, status])
+}
+
+model ListingAsset {
+  id            String    @id @default(cuid())
+  storeId       String
+  store         Store     @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  filename      String
+  mimeType      String
+  size          Int
+  ebayUrl       String?
+  ebayExpiresAt DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([storeId])
+}
+
+model ListingOperation {
+  id             String       @id @default(cuid())
+  storeId        String
+  store          Store        @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  draftId        String
+  draft          ListingDraft @relation(fields: [storeId, draftId], references: [storeId, id], onDelete: Restrict)
+  actorId        String
+  accountId      String
+  draftVersion   Int
+  kind           String
+  payload        String
+  idempotencyKey String
+  status         String       @default("queued")
+  listingId      String?
+  error          String?
+  attempts       Int          @default(0)
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@unique([storeId, idempotencyKey])
+  @@index([storeId, status])
+}
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  actorId   String
+  action    String
+  entityId  String?
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([storeId, createdAt])
+}

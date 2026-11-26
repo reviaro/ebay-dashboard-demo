@@ -1,0 +1,15 @@
+[Unit]
+Description=eBay sync tick (the schedule itself lives in EbaySyncSetting)
+
+[Timer]
+# Hourly, not weekly. The interval here is only how often the worker *asks*
+# whether anything is due; the real schedule is EbaySyncSetting.frequency,
+# editable from /settings. A tick with nothing due exits in about a second.
+OnCalendar=hourly
+# Fire once after a boot that missed a tick, rather than waiting for the hour.
+Persistent=true
+# Keep the whole fleet of hourly timers from firing on the same second.
+RandomizedDelaySec=5m
+
+[Install]
+WantedBy=timers.target

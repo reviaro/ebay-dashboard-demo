@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #020617;
+  --foreground: #e2e8f0;
+  --surface: #0f172a;
+  --surface-raised: #1e293b;
+  --border: #334155;
+  --accent: #60a5fa;
+}
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  /* Fira Sans and Fira Code typography */
+  font-family: var(--font-fira-sans), sans-serif;
+}
+
+.part-number, .metric-value, .sku {
+  font-family: var(--font-fira-code), monospace;
+}
+
+.data-dense-card {
+  @apply p-3 border border-slate-200 rounded shadow-sm bg-white;
+}
+
+.data-dense-label {
+  @apply text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1;
+}
+
+.data-dense-value {
+  @apply text-lg font-bold text-blue-800;
+}
+
+/* Original typography, locally bundled through Fontsource. Licenses: /fonts/. */
+:root {
+  --font-fira-sans: "Fira Sans", sans-serif;
+  --font-fira-code: "Fira Code", monospace;
+}
+.demo-banner { display:flex; align-items:center; justify-content:space-between; gap:12px; max-width:1480px; margin:0 auto 24px; padding:11px 15px; border:1px solid #78350f77; border-radius:8px; background:#78350f22; color:#fcd34d; font-size:11px; line-height:1.5; }
+/* Keep the original wide pie; full category labels move below narrow panels. */
+.demo-category-pie { container-type: inline-size; container-name: demo-category; }
+.demo-category-pie-key { display: none; }
+@container demo-category (max-width: 479px) {
+  .recharts-pie-labels { display: none; }
+  .demo-category-pie-key { display: block; }
+}
+@media (max-width:640px) {
+  .demo-banner { align-items:flex-start; flex-direction:column; gap:4px; padding:10px 12px; margin-bottom:17px; font-size:10px; }
+}

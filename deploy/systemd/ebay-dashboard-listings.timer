@@ -1,0 +1,10 @@
+[Unit]
+Description=Recover and process queued eBay listing operations every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=1min
+Unit=ebay-dashboard-listings.service
+
+[Install]
+WantedBy=timers.target

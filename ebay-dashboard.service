@@ -1,0 +1,18 @@
+# Deployment example only. Do not install or start this for a portfolio demo.
+# Replace WorkingDirectory and ExecStart with paths for your isolated host.
+# /usr/bin/npm is an example; use an absolute npm path for your Node installation.
+# Keep credentials in ignored environment files, never in this unit.
+[Unit]
+Description=eBay Dashboard Next.js Application
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/apps/ebay-dashboard
+ExecStart=/usr/bin/npm run start -- -p 3939
+Restart=always
+RestartSec=10
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,30 @@
+# Deployment example only. This service makes live eBay API requests and
+# writes to the configured database. Do not install or enable it for a demo.
+# Set WorkingDirectory and the absolute npm binary for an isolated host first.
+# /usr/bin/npm is a placeholder for your installed Node/npm toolchain.
+# Keep credentials in ignored environment files, never in this unit.
+#
+# For an explicitly configured live deployment, install as the service user:
+#   cp deploy/systemd/ebay-sync-orders.* ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now ebay-sync-orders.timer
+#
+# Check: systemctl --user list-timers ebay-sync-orders.timer
+# Logs: journalctl --user -u ebay-sync-orders.service
+# A system administrator may enable lingering for that service user if needed.
+
+[Unit]
+Description=eBay dashboard: sync orders from the eBay API
+# The sync is useless without the network, and a timer can fire during boot.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/apps/ebay-dashboard
+# Absolute path: a systemd user unit does not get the nvm shell environment.
+ExecStart=/usr/bin/npm run sync
+Environment=NODE_ENV=production
+# The lease already prevents overlap, but there is no reason for a stuck run to
+# outlive the window in which another may take it over.
+TimeoutStartSec=30min

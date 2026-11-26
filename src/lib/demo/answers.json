@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "store": "Northstar Sample Parts",
+  "asOf": "2026-09-30",
+  "window": {
+    "from": "2025-10-01",
+    "to": "2026-09-30"
+  },
+  "source": "prisma/demo.db",
+  "questions": [
+    {
+      "id": "brand-profit",
+      "question": "Which brands made the most profit last quarter?",
+      "answer": "Fictional demo data as of September 30, 2026. For Q3 2026 (July–September), the top modeled contribution was Honda: $4,439.93 from 56 orders; Volvo: $3,218.66 from 60 orders; Toyota: $3,061.77 from 49 orders. This subtracts sale fees, refunds, item acquisition cost, postage, and listing-level ad spend from item-plus-shipping revenue. Shared overhead and taxes are excluded, so this is contribution, not accounting net profit.",
+      "provenance": {
+        "tables": [
+          "EbayFinanceTransaction",
+          "Sale",
+          "Inventory",
+          "EbayAdReport"
+        ],
+        "period": {
+          "from": "2026-07-01",
+          "to": "2026-09-30"
+        },
+        "method": "Integer-cent sums by brand; cost uses Inventory.cost per sold unit, including returned units; no shared-overhead allocation."
+      }
+    },
+    {
+      "id": "ad-waste",
+      "question": "Where is ad spend not paying off?",
+      "answer": "Fictional demo data as of September 30, 2026. In Q3, DEMO Discovery Test was the weakest campaign: $653.60 spent for $534.28 in attributed sales (0.82× ROAS). DEMO-LIST-0055 spent $77.90 with no attributed sales; DEMO-LIST-0059 spent $71.42 with no attributed sales; DEMO-LIST-0050 spent $66.56 with no attributed sales. Review or pause those test placements before raising budgets. ROAS is revenue divided by ad spend and does not itself prove profitability.",
+      "provenance": {
+        "tables": [
+          "EbayAdReport",
+          "Inventory",
+          "EbayFinanceTransaction"
+        ],
+        "period": {
+          "from": "2026-07-01",
+          "to": "2026-09-30"
+        },
+        "method": "Campaign ROAS recomputed from summed attributed revenue and spend; zero-attribution listing costs ranked by spend. Report spending ties to finance AD_FEE charges."
+      }
+    },
+    {
+      "id": "views-no-sales",
+      "question": "Which listings get views but no sales?",
+      "answer": "Fictional demo data as of September 30, 2026. For September, the leading active listings with zero orders were DEMO-LIST-0020, 2009–2014 Ford F-150 OEM Interior Door Handle: 510 views; DEMO-LIST-0032, 2010–2014 Subaru Outback OEM Cup Holder Insert: 480 views; DEMO-LIST-0060, 2010–2014 Volkswagen Golf OEM Climate Control Panel: 480 views. Check connector photos, fitment years, condition detail, and price before buying more stock. These counts are daily traffic totals, not lifetime snapshots.",
+      "provenance": {
+        "tables": [
+          "EbayTrafficListing",
+          "Inventory"
+        ],
+        "period": {
+          "from": "2026-09-01",
+          "to": "2026-09-30"
+        },
+        "method": "Sum views and transactions by listing in September; filter zero transactions and positive stock, rank by views."
+      }
+    },
+    {
+      "id": "relist-reprice",
+      "question": "What should I relist or reprice this week?",
+      "answer": "Fictional demo data as of September 30, 2026. For the week containing September 30, test repricing DEMO-LIST-0020 from $29.95 to $26.96; DEMO-LIST-0032 from $23.95 to $21.56; DEMO-LIST-0060 from $134.95 to $121.46. Each has stock and September views but no orders. Refresh fitment and photos at the same time, then compare the next 14 days. This is a demo recommendation only; no listing or price was changed.",
+      "provenance": {
+        "tables": [
+          "EbayTrafficListing",
+          "Inventory"
+        ],
+        "period": {
+          "from": "2026-09-01",
+          "to": "2026-09-30"
+        },
+        "method": "Top three zero-sale stocked listings by September views; suggested test price = 90% of current price rounded to cents. Week is anchored to the fixed as-of date."
+      }
+    },
+    {
+      "id": "fee-trend",
+      "question": "How did eBay fees change over the year?",
+      "answer": "Fictional demo data as of September 30, 2026. Sale fees moved from $931.01 on $6,994.63 gross in October 2025 (13.31%) to $2,328.82 on $16,756.11 in September 2026 (13.90%). The effective rate rose 0.59 percentage points. This fixture models a variable-fee increase from 12.7% to 13.2% and a per-order increase from $0.30 to $0.40 in April 2026; these are fictional assumptions, not eBay's fee schedule. Ad spend, postage, refunds, and the store subscription are reported separately.",
+      "provenance": {
+        "tables": [
+          "EbayFinanceTransaction"
+        ],
+        "period": {
+          "from": "2025-10-01",
+          "to": "2026-09-30"
+        },
+        "method": "Monthly sale-fee details divided by sale proceeds plus those fees; ratios are weighted by gross, not averaged. Excludes NON_SALE_CHARGE and SHIPPING_LABEL."
+      }
+    }
+  ]
+}

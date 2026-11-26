@@ -1,0 +1,17 @@
+# Deployment example only. This service publishes and revises live eBay
+# listings for stores whose listing writes are enabled. Do not install or
+# enable it for a demo.
+# Replace WorkingDirectory and ExecStart with paths for your host; /usr/bin/npm
+# is an example, so use the absolute npm path of your Node installation.
+# Keep credentials in ignored environment files, never in this unit.
+[Unit]
+Description=Process queued eBay dashboard listing operations
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/apps/ebay-dashboard
+ExecStart=/usr/bin/npm run listings:work
+Environment=NODE_ENV=production
+TimeoutStartSec=30min

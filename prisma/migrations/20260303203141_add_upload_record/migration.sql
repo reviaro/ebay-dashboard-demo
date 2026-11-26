@@ -1,0 +1,8 @@
+-- CreateTable
+CREATE TABLE "UploadRecord" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "filename" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "rowCount" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

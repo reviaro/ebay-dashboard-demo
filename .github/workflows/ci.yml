@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Actions are pinned to full commit SHAs; the release tag is in each comment.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # Runs only in the public demo repository.
+    if: github.repository == 'reviaro/ebay-dashboard-demo'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Seed the synthetic demo database
+        run: npm run seed:demo
+      - run: TZ=UTC npm test
+      - run: npm run typecheck
+      - run: npm run lint
+      - name: Build the authenticated app
+        run: npm run build
+      - name: Build the demo
+        run: npm run demo:build
+      - name: HTTP smoke test against the running demo
+        run: |
+          npm run demo:start > demo.log 2>&1 &
+          curl -sf --retry 60 --retry-delay 2 --retry-connrefused -o /dev/null http://127.0.0.1:3941/
+          npm run test:demo:http
+      - name: Ordinary-mode authentication regression
+        run: npm run test:auth:http
+
+  secrets:
+    if: github.repository == 'reviaro/ebay-dashboard-demo'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

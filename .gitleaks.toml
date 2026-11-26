@@ -1,0 +1,9 @@
+# Default gitleaks rules, plus one exception: the synthetic eBay keyset that
+# unit tests use. It matches no real credential format beyond its prefix, and
+# scripts/git-hooks/pre-commit allows the same marker.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Synthetic eBay keyset used by unit tests"
+regexes = ['''^(PRD|SBX)-a1b2c3d4e5f6-1a2b-3c4d-5e6f$''']

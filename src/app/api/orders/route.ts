@@ -13,14 +13,19 @@ async function handleGET(req: NextRequest) {
   const search = searchParams.get("search") ?? "";
   const dateFrom = searchParams.get("dateFrom");
   const dateTo = searchParams.get("dateTo");
+  // Both ends of the range are calendar days in the same zone: local time for
+  // the store, UTC for the demo's fixed snapshot (as /api/profitability does).
+  // A bare `new Date("YYYY-MM-DD")` would be UTC midnight, shifting the start.
+  const zone = isDemoMode() ? "Z" : "";
+  const startOf = (day: string) => new Date(`${day}T00:00:00${zone}`);
 
   // CSV sales and API orders as one list. Where both sources hold an order the
   // API row wins, so the totals here reflect eBay rather than the export --
   // see src/lib/orders/unified.ts.
   const all = filterOrders(await loadUnifiedOrders(), {
     search,
-    ...(dateFrom ? { dateFrom: new Date(dateFrom) } : {}),
-    ...(dateTo ? { dateTo: new Date(dateTo + "T23:59:59" + (isDemoMode() ? "Z" : "")) } : {}),
+    ...(dateFrom ? { dateFrom: startOf(dateFrom) } : {}),
+    ...(dateTo ? { dateTo: new Date(`${dateTo}T23:59:59${zone}`) } : {}),
   });
 
   const orders = all.slice((page - 1) * limit, page * limit);
@@ -34,8 +39,8 @@ async function handleGET(req: NextRequest) {
   // share the same date window as the order list.
   const financeWindow = (dateFrom || dateTo) ? {
     transactionDate: {
-      ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
-      ...(dateTo ? { lte: new Date(dateTo + "T23:59:59.999" + (isDemoMode() ? "Z" : "")) } : {}),
+      ...(dateFrom ? { gte: startOf(dateFrom) } : {}),
+      ...(dateTo ? { lte: new Date(`${dateTo}T23:59:59.999${zone}`) } : {}),
     },
   } : {};
   const [refundRows, saleRows] = await Promise.all([

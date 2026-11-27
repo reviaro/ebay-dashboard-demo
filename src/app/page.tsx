@@ -390,7 +390,7 @@ export default function Dashboard() {
                 {metrics.metrics.topStates.slice(0, 5).map((s: any, i: number) => (
                   <div key={s.state} className="flex items-center gap-2">
                     <span className="text-[10px] text-slate-500 w-4 flex-shrink-0">{i + 1}</span>
-                    <span className="text-xs font-medium text-slate-200 w-8 flex-shrink-0">{s.state}</span>
+                    <span className="text-xs font-medium text-slate-200 w-24 flex-shrink-0 truncate" title={s.state}>{s.state}</span>
                     <div className="flex-1 bg-slate-700 rounded-full h-1.5 overflow-hidden">
                       <div
                         className="h-full bg-blue-600 rounded-full"

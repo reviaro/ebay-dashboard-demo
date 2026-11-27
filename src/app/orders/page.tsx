@@ -5,6 +5,7 @@ import { storeFetch } from '@/lib/stores/browser';
 import { useState, useEffect, useCallback } from 'react';
 import { Calendar, Search, ShoppingBag } from 'lucide-react';
 import { timeAgo } from '@/lib/relative-time';
+import { orderNetRevenue } from '@/lib/orders/net-revenue';
 import { useDemoMode } from '@/components/DemoProvider';
 import { DEMO_AS_OF, DEMO_DATE } from '@/lib/demo/config';
 import {
@@ -70,6 +71,11 @@ type ApiResponse = {
 
 function fmt(n: number | null | undefined) {
   return `$${(n ?? 0).toFixed(2)}`;
+}
+
+/** Like fmt, but an unknown figure shows as a dash instead of $0.00. */
+function fmtKnown(n: number | null) {
+  return n === null ? '—' : fmt(n);
 }
 
 /**
@@ -248,7 +254,7 @@ export default function OrdersPage() {
           { label: 'eBay Fees', value: fmt(-(data?.stats.ebayFees ?? 0)), accent: 'text-rose-400' },
           { label: 'Proceeds After Fees', value: fmt(data?.stats.proceedsAfterFees ?? 0), accent: 'text-white' },
           { label: 'Refunds', value: fmt(-(data?.stats.refundTotal ?? 0)), accent: 'text-rose-400' },
-          { label: 'Net Revenue', value: fmt((data?.stats._sum.soldFor ?? 0) - (data?.stats.refundTotal ?? 0)), accent: 'text-emerald-400' },
+          { label: 'Net Revenue', value: fmtKnown(orderNetRevenue(data?.stats)), accent: 'text-emerald-400' },
           { label: 'Tax Collected', value: fmt(data?.stats._sum.eBayTax), accent: 'text-yellow-400' },
           { label: 'Shipping', value: fmt(data?.stats._sum.shipping), accent: 'text-blue-400' },
           { label: 'Total Billed', value: fmt(data?.stats._sum.totalPrice), accent: 'text-emerald-400' },

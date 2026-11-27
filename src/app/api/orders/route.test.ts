@@ -46,8 +46,23 @@ describe('GET /api/orders', () => {
   it('passes the date range through to the finance query', async () => {
     await GET(req('http://localhost/api/orders?dateFrom=2026-06-01&dateTo=2026-06-30'));
     const where = financeFindMany.mock.calls[0][0].where;
-    expect(where.transactionDate.gte).toEqual(new Date('2026-06-01'));
+    expect(where.transactionDate.gte).toEqual(new Date('2026-06-01T00:00:00'));
     expect(where.transactionDate.lte).toEqual(new Date('2026-06-30T23:59:59.999'));
+  });
+
+  it('reads dateFrom and dateTo as the same local calendar days', async () => {
+    const tz = process.env.TZ;
+    process.env.TZ = 'America/New_York';
+    try {
+      await GET(req('http://localhost/api/orders?dateFrom=2026-09-01&dateTo=2026-09-30'));
+      const where = financeFindMany.mock.calls[0][0].where;
+      // Midnight Sept 1 to the last millisecond of Sept 30, US Eastern (UTC-4).
+      expect(where.transactionDate.gte.toISOString()).toBe('2026-09-01T04:00:00.000Z');
+      expect(where.transactionDate.lte.toISOString()).toBe('2026-10-01T03:59:59.999Z');
+      expect(mockFilter.mock.calls[0][1].dateFrom.toISOString()).toBe('2026-09-01T04:00:00.000Z');
+    } finally {
+      if (tz === undefined) delete process.env.TZ; else process.env.TZ = tz;
+    }
   });
 
   it('is zero, not an error, when no finance refunds exist', async () => {
